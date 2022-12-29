@@ -14,6 +14,7 @@
 #define NTP_OFFSET 60*60
 #define NTP_INTERVAL 300*1000
 #include <String.h>
+#include <FirebaseESP8266.h>
 
 int yil,ay;
 const int DOUT_PIN = 12; // HX711 DOUT pini (veri çıkışı) NodeMCU GPIO12 piniyle bağlanır
@@ -34,16 +35,6 @@ HX711 scale;
 Servo servo;
 NTPClient timeClient(ntpUDP, "tr.pool.ntp.org", NTP_OFFSET, NTP_INTERVAL);
 BlynkTimer timer;
-
-
-
-
-
-void CheckMotorState(){
-
-
-  
-}
 BLYNK_WRITE(V0){
    int s0 = param.asInt();
    servo.write(s0);
