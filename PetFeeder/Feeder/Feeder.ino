@@ -15,23 +15,17 @@
 #define NTP_INTERVAL 300*1000
 #include <String.h>
 #include "ThingSpeak.h"
-#include <ESP_Mail_Client.h>
-#include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
 
 const char* host = "maker.ifttt.com";
 int yil,ay;
-const int DOUT_PIN = D6; // HX711 DOUT pini (veri çıkışı) NodeMCU GPIO12 piniyle bağlanır
-const int CLK_PIN = D5; // HX711 CLK pini (saat çıkışı) NodeMCU GPIO13 piniyle bağlanır
 const char* auth  = "eXOv51EFYSIT_h7H00ERfSCIdFg27NH8";  // Blynk uygulaması tarafından, mailinize gelen token key    
-const char* ssid = "AndroidAP";  // Bağlantı yapacağınız Wi‐Fi adı 
+const char* ssid = "OPPO Reno4";  // Bağlantı yapacağınız Wi‐Fi adı 
 const char* pass  = "iremirem12"; 
-unsigned long last_second;
 int saat, dakika ;
 int time_blynk,data;
 int gun;
 int calibration_factor=400;
-
 unsigned long channelID =1996937;             // Thingspeak channel ID 
 unsigned int field_no=1; 
 const char* writeAPIKey = "HR1NLRPL5DSKU5FY";   // Thingspeak write API Key 
@@ -73,23 +67,21 @@ BLYNK_WRITE(V5){
 
 
 void setup() {
-  Serial.begin(115200);
-  //ThingSpeak.begin(client);
+  Serial.begin(9600);
   scale.begin(D5,D6);
   scale.set_scale(calibration_factor); // this value is obtained by calibrating the scale with known weights
-  scale.tare(); // reset the scale to 0
+
   delay(100);
   servo.attach(5);
   pinMode(motor, OUTPUT);
   digitalWrite(motor, LOW);
   Blynk.begin (auth, ssid, pass, "blynk.cloud", 80);
   WiFi.begin(ssid, pass);
-  last_second = millis();
-
   while ( WiFi.status() != WL_CONNECTED ) {
     delay ( 500 );
     Serial.print ( "." );
   }
+  ThingSpeak.begin(client);
 
   timeClient.begin();
  
@@ -101,9 +93,8 @@ void setup() {
 
 void loop() {
   
-  if (millis() - last_second > 1000)
-  {
-    last_second = millis();
+  
+    
 
     timeClient.update();
     unsigned long epochTime = timeClient.getEpochTime();
@@ -127,7 +118,7 @@ void loop() {
 
 
 
-  }// End of the millis...
+  
 
   int final_time = 3600*saat + 60*dakika;
   
@@ -139,13 +130,14 @@ void loop() {
   delay(2000);
   
   }
-  Serial.println(gun);
+  
 
   //Serial.println(dakika);
   if (data == 1){
   servo.write(180);
   delay(1000);
-servo.write(0);
+  servo.write(0);
+  delay(1000);
 String strSaat=String(saat);
 String strDakika=String(dakika);
 String zaman=String("Zaman:"+strSaat+":"+strDakika);
@@ -160,30 +152,51 @@ Blynk.virtualWrite(V4,zaman);
 
 
 
+static unsigned int lastMeasurement =0;
+if(millis()-lastMeasurement>5000){
 
+lastMeasurement=millis();
 float weight = scale.get_units(calibration_factor); // Ağırlığı ölçün
 if(weight<0){
   weight=0;
 }
-int i=0;
-if(weight>0 && i<3){
+if(weight>0){
+  weight=(weight-898)*2;
+}
+int i=1;
+Serial.print("Agirlik:");
+Serial.println(weight);
+if(weight<750 && i==1){
 
-  
-  sendIFTTTRequest();
-  i++;
+           const int httpPort = 80;  
+            if (!client.connect(host, httpPort)) {  
+                  Serial.println("connection failed");  
+            return;}
+
+  String url = "/trigger/mama_bitti/with/key/pnyzO2VyW8j6W3WkZyg5X3z-UxtQAWsv1e2KmN6RIuS"; 
+
+          
+                    Serial.print("Requesting URL: ");
+                    Serial.println(url);
+                 
+                     client.print(String("GET ") + url + " HTTP/1.1\r\n" + 
+                                    "Host: " + host + "\r\n" +   
+                                           "Connection: close\r\n\r\n");
+  i=0;
   
 }
-
-Serial.println(weight); // Ölçülen ağırlığı seri porta yazdırın//
 Blynk.virtualWrite(V3,weight);
-/*
-ThingSpeak.setField (1, weight);       // 1 nolu field ı kur 
-ThingSpeak.writeFields(channelID, writeAPIKey);  
-*/
+ThingSpeak.setField (1, weight);
+ThingSpeak.writeField (channelID, field_no, weight, writeAPIKey);
 
-Blynk.run();
+
+
+
+
+}
+
 timer.run();
-
+Blynk.run();
 }//End of the lllloooopppp
 
 void sendIFTTTRequest() {
@@ -193,29 +206,7 @@ WiFiClient client;
             if (!client.connect(host, httpPort)) {  
                   Serial.println("connection failed");  
             return;}
-/*
-HTTPClient http;
-const int capacity = JSON_OBJECT_SIZE(2) + JSON_OBJECT_SIZE(4) + 60;
-DynamicJsonDocument doc(capacity);
-  http.begin(client,"https://maker.ifttt.com/trigger/mama_bitti/with/key/pnyzO2VyW8j6W3WkZyg5X3z-UxtQAWsv1e2KmN6RIuS");
-  http.addHeader("Content-Type", "application/json");
 
-  // İstek verilerini oluştur
-  
-  doc["value1"] = 0;
-  doc["value2"] = "gram";
-  doc["value3"]="";
-
-  // İstek verilerini JSON'a dönüştür
-  String json;
-  serializeJson(doc, json);
-
-  // İstek gönder
-  int httpCode = http.POST(json);
-  Serial.println(httpCode); // İstek cevabını yazdır
-
-  http.end(); // İstek sonlandır
-  */
   String url = "/trigger/mama_bitti/with/key/pnyzO2VyW8j6W3WkZyg5X3z-UxtQAWsv1e2KmN6RIuS"; 
 
           
